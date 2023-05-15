@@ -268,18 +268,18 @@ void Widget::nand2(QPainter *painter, Device *device){
     int p1_y = device->lh.y*20+15;
     int p2_x = device->lh.x*20;
     int p2_y = (device->lh.y+device->height)*20-15;
-    int p3_x = (device->lh.x+device->width)*20-30;
+    int p3_x = (device->lh.x+device->width)*20-25;
     int p3_y = p1_y;
     int p4_x = p3_x;
     int p4_y = p2_y;
     painter->drawLine(p1_x,p1_y,p2_x,p2_y);
     painter->drawLine(p1_x,p1_y,p3_x,p3_y);
     painter->drawLine(p2_x,p2_y,p4_x,p4_y);
-    QRectF rectangle(p3_x-30, p3_y, 50.0, 50.0);
+    QRectF rectangle(p3_x-18, p3_y, 30.0, 30.0);
     int startAngle = -80 * 16;
     int spanAngle = 170 * 16;
     painter->drawArc(rectangle, startAngle, spanAngle);    //调用绘图命令
-    painter->drawEllipse(QPoint(p3_x+25,(p3_y+p4_y)/2),7,7);
+    painter->drawEllipse(QPoint(p3_x+20,(p3_y+p4_y)/2),7,7);
 }
 
 void Widget::DFF(QPainter* painter,Device* device){

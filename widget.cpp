@@ -312,7 +312,7 @@ void Widget::ck_gen(QPainter *painter, Device *device){
 void Widget::paintEvent(QPaintEvent *)
 {
     QSvgGenerator generator;
-    generator.setFileName("C:/Users/dingyanfeng/Desktop/637.svg");
+    generator.setFileName("C:/Users/dingyanfeng/Desktop/file.svg");
     generator.setSize(QSize(qAbs(this->min_mapx)+this->map_w,qAbs(this->min_mapy)+this->map_h));
     generator.setViewBox(QRect(QPoint(this->min_mapx,this->min_mapy),QSize(qAbs(this->min_mapx)+this->map_w,qAbs(this->min_mapy)+this->map_h)));
     generator.setTitle("SVG Example");
@@ -320,9 +320,10 @@ void Widget::paintEvent(QPaintEvent *)
     QPainter painter;
     painter.begin(&generator);
     //绘制元件
+    painter.setBrush(Qt::gray);
     for(int i=0;i<deviceVec.size();i++){
         QPen pen(QColor(138,76,76));//13,238,255
-        pen.setWidth(1);
+        pen.setWidth(2);
         painter.setPen(pen);
         if(deviceVec[i].type=="inv"){
             this->inv(&painter,&deviceVec[i]);
@@ -358,7 +359,7 @@ void Widget::paintEvent(QPaintEvent *)
         QVector<Segment> transverseStream;//横向Segment
         for(int j=0;j<streamVec[i].size();j++){
             QPen pen(QColor(31,0,214));//255,255,13
-            pen.setWidth(1);
+            pen.setWidth(2);
             painter.setPen(pen);
             painter.drawLine(QPoint(streamVec[i][j].n1.x*20,streamVec[i][j].n1.y*20),QPoint(streamVec[i][j].n2.x*20,streamVec[i][j].n2.y*20));
             if(streamVec[i][j].n1.x==streamVec[i][j].n2.x){
@@ -464,7 +465,7 @@ void Widget::paintEvent(QPaintEvent *)
     //绘制InOut
     for(int i=0;i<inoutVec.size();i++){
         QPen pen(QColor(138,76,76));//255,255,13
-        pen.setWidth(1);
+        pen.setWidth(2);
         painter.setPen(pen);
         //painter.drawRect(inoutVec[i].n1.x*20,inoutVec[i].n1.y*20,20*20,20*20);
         if(inoutVec[i].name!="" && inoutVec[i].in_out!=""){

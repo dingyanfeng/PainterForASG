@@ -52,9 +52,24 @@ private:
     void Latch(QPainter* painter,Device* device);
     void ck_gen(QPainter* painter,Device* device);
 public:
-    void paintEvent(QPaintEvent *);
+//    void paintEvent(QPaintEvent *);
     float max_4(float a,float b,float c,float d);
     float min_4(float a,float b,float c,float d);
     bool Cross(Segment s1,Segment s2);
+protected:
+    void paintEvent(QPaintEvent *event) override;
+    void wheelEvent(QWheelEvent *event) override;
+    void keyPressEvent(QKeyEvent *event) override;
+    void keyReleaseEvent(QKeyEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
+
+private:
+    qreal m_scaleFactor;  // 缩放因子
+    bool m_ctrlPressed;   // Ctrl键状态
+    bool m_isDragging;     // 拖动状态
+    QPoint m_dragStartPosition;  // 拖动起始位置
+    QPoint m_dragOffset;   // 拖动偏移量
 };
 #endif // WIDGET_H

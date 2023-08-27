@@ -1,13 +1,20 @@
 #include "widget.h"
 #include "ui_widget.h"
-#include<QPainter>
-#include<QPixmap>
-#include<QFile>
-#include<QDebug>
-#include<QTextStream>
+#include <QPainter>
+#include <QPixmap>
+#include <QFile>
+#include <QDebug>
+#include <QTextStream>
 #include <QtSvg/QSvgGenerator>
 #include <QtSvg/QSvgRenderer>
 #include <QKeyEvent>
+#include <QFileDialog>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
+#include <QHttpMultiPart>
+#include <QHttpPart>
+#include <QVariant>
 
 float Widget::max_4(float a,float b,float c,float d){
     if(a>=b && a>=c && a>=d)
@@ -57,200 +64,12 @@ Widget::Widget(QWidget *parent)
     , m_scaleFactor(1.0)
     , m_ctrlPressed(false)
     , m_isDragging(false)
+    , have_new_file(false)
 {
+    setFocusPolicy(Qt::StrongFocus); // 设置焦点策略
+    grabKeyboard(); // 捕获键盘事件
+
     ui->setupUi(this);
-    QFile file("C:/Users/dingyanfeng/Desktop/output.txt");//与文件建立联系
-    if(!file.exists())//判断是否建立成功
-    {
-         QString str = "world";
-         qDebug()<<"hello "<<str<<"!"<<endl;
-    }
-    else
-    {
-        this->setStyleSheet("background-color:rgb(255,255,255)");
-        this->showMaximized();//成功则窗口会最大化，这只是我用检测的方法
-    }
-
-    if(file.open(QIODevice::ReadOnly|QIODevice::Text))//打开文件，以只读的方式打开文本文件
-    {
-        QTextStream in(&file);
-        bool readDevice=false,readSegment=false,readInOut=false;
-        while (!in.atEnd()) {
-            QString line=in.readLine();
-            if(line=="device:"){
-                readDevice=true;
-                readSegment=false;
-                readInOut=false;
-                continue;
-            }
-            if(line=="segments:"){
-                QVector<Segment> temp;
-                streamVec.push_back(temp);
-                readSegment=true;
-                readDevice=false;
-                readInOut=false;
-                continue;
-            }
-            if(line=="inout:"){
-                readInOut=true;
-                readDevice=false;
-                readSegment=false;
-                continue;
-            }
-            if(readDevice){
-                QStringList list=line.split(" ");
-                if(list.size()==4){
-                    Device temp;
-                    Node lh;
-                    lh.x=list[1].toFloat();
-                    lh.y=list[0].toFloat();
-                    temp.name="NONAME";
-                    temp.type="NOTYPE";
-                    temp.lh=lh;
-                    temp.width=list[3].toFloat();
-                    temp.height=list[2].toFloat();
-                    deviceVec.push_back(temp);
-                    readDevice=false;
-                    //判断是否更改截图大小和坐标
-                    if((lh.x + temp.width)*20 > map_w){
-                        map_w = (lh.x + temp.width + 1)*20;
-                    }
-                    if((lh.y + temp.height)*20 > map_h){
-                        map_h = (lh.y + temp.height + 1)*20;
-                    }
-                    if(lh.x*20 <= min_mapx){
-                        min_mapx = (lh.x-1)*20;
-                    }
-                    if(lh.y*20 <= min_mapy){
-                        min_mapy = (lh.y-1)*20;
-                    }
-                    continue;
-                }
-                if(list.size()==6){
-                    Device temp;
-                    Node lh;
-                    lh.x=list[3].toFloat();
-                    lh.y=list[2].toFloat();
-                    temp.name=list[0];
-                    temp.type=list[1];
-                    temp.lh=lh;
-                    temp.width=list[5].toFloat();
-                    temp.height=list[4].toFloat();
-                    deviceVec.push_back(temp);
-                    readDevice=false;
-                    //判断是否更改截图大小
-                    if((lh.x + temp.width)*20 > map_w){
-                        map_w = (lh.x + temp.width + 1)*20;
-                    }
-                    if((lh.y + temp.height)*20 > map_h){
-                        map_h = (lh.y + temp.height + 1)*20;
-                    }
-                    if(lh.x*20 <= min_mapx){
-                        min_mapx = (lh.x-1)*20;
-                    }
-                    if(lh.y*20 <= min_mapy){
-                        min_mapy = (lh.y-1)*20;
-                    }
-                    continue;
-                }
-            }
-            if(readSegment){
-                QStringList list=line.split(" ");
-                Segment tempSegment;
-                Node start;
-                Node end;
-                start.x=list[1].toFloat();
-                start.y=list[0].toFloat();
-                end.x=list[3].toFloat();
-                end.y=list[2].toFloat();
-                tempSegment.n1=start;
-                tempSegment.n2=end;
-                streamVec[streamVec.size()-1].push_back(tempSegment);
-                //判断是否更改截图大小
-                if(start.x*20 >= map_w){
-                    map_w = (start.x + 1)*20;
-                }
-                if(end.x*20 >= map_w){
-                    map_w = (end.x + 1)*20;
-                }
-                if(start.y*20 >= map_h){
-                    map_h = (start.y + 1)*20;
-                }
-                if(end.y*20 >= map_h){
-                    map_h = (end.y + 1)*20;
-                }
-                if(start.x*20 <= min_mapx){
-                    min_mapx = (start.x - 1)*20;
-                }
-                if(end.x*20 <= min_mapx){
-                    min_mapx = (end.x - 1)*20;
-                }
-                if(start.y*20 <= min_mapy){
-                    min_mapy = (start.y - 1)*20;
-                }
-                if(end.y*20 <= min_mapy){
-                    min_mapy = (end.y - 1)*20;
-                }
-            }
-            if(readInOut){
-                QStringList list=line.split(" ");
-                Segment tempSInOut;
-                Node StInOut;
-                Node EnInOut;
-                if(list.size()==4){
-                    StInOut.x=list[1].toFloat();
-                    StInOut.y=list[0].toFloat();
-                    EnInOut.x=list[3].toFloat();
-                    EnInOut.y=list[2].toFloat();
-                    tempSInOut.n1=StInOut;
-                    tempSInOut.n2=EnInOut;
-                    inoutVec.push_back(tempSInOut);
-                }
-                if(list.size()==6){
-                    StInOut.x=list[3].toFloat();
-                    StInOut.y=list[2].toFloat();
-                    EnInOut.x=list[5].toFloat();
-                    EnInOut.y=list[4].toFloat();
-                    tempSInOut.n1=StInOut;
-                    tempSInOut.n2=EnInOut;
-                    tempSInOut.in_out=list[0];
-                    tempSInOut.name=list[1];
-                    inoutVec.push_back(tempSInOut);
-                }
-
-                //判断是否更改截图大小
-                if(StInOut.x*20+(tempSInOut.name.size()-1)*9 >= map_w){
-                    map_w = (StInOut.x + 1)*20+(tempSInOut.name.size()-1)*9;
-                }
-                if(EnInOut.x*20+(tempSInOut.name.size()-1)*9 >= map_w){
-                    map_w = (EnInOut.x + 1)*20+(tempSInOut.name.size()-1)*9;
-                }
-                if(StInOut.y*20 >= map_h){
-                    map_h = (StInOut.y + 1)*20;
-                }
-                if(EnInOut.y*20 >= map_h){
-                    map_h = (EnInOut.y + 1)*20;
-                }
-                if(StInOut.x*20-(tempSInOut.name.size()-1)*9 <= min_mapx){
-                    min_mapx = (StInOut.x - 1)*20-(tempSInOut.name.size()-1)*9;
-                }
-                if(EnInOut.x*20-(tempSInOut.name.size()-1)*9 <= min_mapx){
-                    min_mapx = (EnInOut.x - 1)*20-(tempSInOut.name.size()-1)*9;
-                }
-                if(StInOut.y*20 <= min_mapy){
-                    min_mapy = (StInOut.y - 1)*20;
-                }
-                if(EnInOut.y*20 <= min_mapy){
-                    min_mapy = (EnInOut.y - 1)*20;
-                }
-                qDebug()<<map_w<<" "<<map_h<<" "<<min_mapx<<" "<<min_mapy<<endl;
-            }
-        }
-        file.close();
-    }
-    else{
-         qDebug()<<file.errorString();
-    }
 }
 
 void Widget::inv(QPainter* painter,Device* device){
@@ -314,8 +133,203 @@ void Widget::ck_gen(QPainter *painter, Device *device){
     painter->drawRect(device->lh.x*20,device->lh.y*20,device->width*20,device->height*20);
 }
 
-void Widget::paintEvent(QPaintEvent *event)
+void Widget::paintEvent(QPaintEvent * event)
 {
+    if(have_new_file){
+        // 初始化数据结构
+        QFile file(resultFilePath);//与文件建立联系
+        if(!file.exists())//判断是否建立成功
+        {
+             qDebug()<<"file not exist!"<<endl;
+        }
+        else
+        {
+            this->setStyleSheet("background-color:rgb(255,255,255)");
+            this->showMaximized();//成功则窗口会最大化，这只是我用检测的方法
+        }
+
+        if(file.open(QIODevice::ReadOnly|QIODevice::Text))//打开文件，以只读的方式打开文本文件
+        {
+            QTextStream in(&file);
+            bool readDevice=false,readSegment=false,readInOut=false;
+            while (!in.atEnd()) {
+                QString line=in.readLine();
+                if(line=="device:"){
+                    readDevice=true;
+                    readSegment=false;
+                    readInOut=false;
+                    continue;
+                }
+                if(line=="segments:"){
+                    QVector<Segment> temp;
+                    streamVec.push_back(temp);
+                    readSegment=true;
+                    readDevice=false;
+                    readInOut=false;
+                    continue;
+                }
+                if(line=="inout:"){
+                    readInOut=true;
+                    readDevice=false;
+                    readSegment=false;
+                    continue;
+                }
+                if(readDevice){
+                    QStringList list=line.split(" ");
+                    if(list.size()==4){
+                        Device temp;
+                        Node lh;
+                        lh.x=list[1].toFloat();
+                        lh.y=list[0].toFloat();
+                        temp.name="NONAME";
+                        temp.type="NOTYPE";
+                        temp.lh=lh;
+                        temp.width=list[3].toFloat();
+                        temp.height=list[2].toFloat();
+                        deviceVec.push_back(temp);
+                        readDevice=false;
+                        //判断是否更改截图大小和坐标
+                        if((lh.x + temp.width)*20 > map_w){
+                            map_w = (lh.x + temp.width + 1)*20;
+                        }
+                        if((lh.y + temp.height)*20 > map_h){
+                            map_h = (lh.y + temp.height + 1)*20;
+                        }
+                        if(lh.x*20 <= min_mapx){
+                            min_mapx = (lh.x-1)*20;
+                        }
+                        if(lh.y*20 <= min_mapy){
+                            min_mapy = (lh.y-1)*20;
+                        }
+                        continue;
+                    }
+                    if(list.size()==6){
+                        Device temp;
+                        Node lh;
+                        lh.x=list[3].toFloat();
+                        lh.y=list[2].toFloat();
+                        temp.name=list[0];
+                        temp.type=list[1];
+                        temp.lh=lh;
+                        temp.width=list[5].toFloat();
+                        temp.height=list[4].toFloat();
+                        deviceVec.push_back(temp);
+                        readDevice=false;
+                        //判断是否更改截图大小
+                        if((lh.x + temp.width)*20 > map_w){
+                            map_w = (lh.x + temp.width + 1)*20;
+                        }
+                        if((lh.y + temp.height)*20 > map_h){
+                            map_h = (lh.y + temp.height + 1)*20;
+                        }
+                        if(lh.x*20 <= min_mapx){
+                            min_mapx = (lh.x-1)*20;
+                        }
+                        if(lh.y*20 <= min_mapy){
+                            min_mapy = (lh.y-1)*20;
+                        }
+                        continue;
+                    }
+                }
+                if(readSegment){
+                    QStringList list=line.split(" ");
+                    Segment tempSegment;
+                    Node start;
+                    Node end;
+                    start.x=list[1].toFloat();
+                    start.y=list[0].toFloat();
+                    end.x=list[3].toFloat();
+                    end.y=list[2].toFloat();
+                    tempSegment.n1=start;
+                    tempSegment.n2=end;
+                    streamVec[streamVec.size()-1].push_back(tempSegment);
+                    //判断是否更改截图大小
+                    if(start.x*20 >= map_w){
+                        map_w = (start.x + 1)*20;
+                    }
+                    if(end.x*20 >= map_w){
+                        map_w = (end.x + 1)*20;
+                    }
+                    if(start.y*20 >= map_h){
+                        map_h = (start.y + 1)*20;
+                    }
+                    if(end.y*20 >= map_h){
+                        map_h = (end.y + 1)*20;
+                    }
+                    if(start.x*20 <= min_mapx){
+                        min_mapx = (start.x - 1)*20;
+                    }
+                    if(end.x*20 <= min_mapx){
+                        min_mapx = (end.x - 1)*20;
+                    }
+                    if(start.y*20 <= min_mapy){
+                        min_mapy = (start.y - 1)*20;
+                    }
+                    if(end.y*20 <= min_mapy){
+                        min_mapy = (end.y - 1)*20;
+                    }
+                }
+                if(readInOut){
+                    QStringList list=line.split(" ");
+                    Segment tempSInOut;
+                    Node StInOut;
+                    Node EnInOut;
+                    if(list.size()==4){
+                        StInOut.x=list[1].toFloat();
+                        StInOut.y=list[0].toFloat();
+                        EnInOut.x=list[3].toFloat();
+                        EnInOut.y=list[2].toFloat();
+                        tempSInOut.n1=StInOut;
+                        tempSInOut.n2=EnInOut;
+                        inoutVec.push_back(tempSInOut);
+                    }
+                    if(list.size()==6){
+                        StInOut.x=list[3].toFloat();
+                        StInOut.y=list[2].toFloat();
+                        EnInOut.x=list[5].toFloat();
+                        EnInOut.y=list[4].toFloat();
+                        tempSInOut.n1=StInOut;
+                        tempSInOut.n2=EnInOut;
+                        tempSInOut.in_out=list[0];
+                        tempSInOut.name=list[1];
+                        inoutVec.push_back(tempSInOut);
+                    }
+
+                    //判断是否更改截图大小
+                    if(StInOut.x*20+(tempSInOut.name.size()-1)*9 >= map_w){
+                        map_w = (StInOut.x + 1)*20+(tempSInOut.name.size()-1)*9;
+                    }
+                    if(EnInOut.x*20+(tempSInOut.name.size()-1)*9 >= map_w){
+                        map_w = (EnInOut.x + 1)*20+(tempSInOut.name.size()-1)*9;
+                    }
+                    if(StInOut.y*20 >= map_h){
+                        map_h = (StInOut.y + 1)*20;
+                    }
+                    if(EnInOut.y*20 >= map_h){
+                        map_h = (EnInOut.y + 1)*20;
+                    }
+                    if(StInOut.x*20-(tempSInOut.name.size()-1)*9 <= min_mapx){
+                        min_mapx = (StInOut.x - 1)*20-(tempSInOut.name.size()-1)*9;
+                    }
+                    if(EnInOut.x*20-(tempSInOut.name.size()-1)*9 <= min_mapx){
+                        min_mapx = (EnInOut.x - 1)*20-(tempSInOut.name.size()-1)*9;
+                    }
+                    if(StInOut.y*20 <= min_mapy){
+                        min_mapy = (StInOut.y - 1)*20;
+                    }
+                    if(EnInOut.y*20 <= min_mapy){
+                        min_mapy = (EnInOut.y - 1)*20;
+                    }
+                }
+            }
+            file.close();
+        }
+        else{
+             qDebug()<<file.errorString();
+        }
+        have_new_file = false;
+    }
+
     QPainter painter(this);
     painter.scale(m_scaleFactor, m_scaleFactor);
     painter.translate(m_dragOffset);
@@ -488,15 +502,10 @@ void Widget::paintEvent(QPaintEvent *event)
     qreal ratio = qMax(ratio1, ratio2);
     qreal scaleX = qreal(this->map_w)/ratio;
     qreal scaleY = qreal(this->map_h)/ratio;
-    qDebug() << "map:    " << this->map_w << " " << this->map_h << endl;
-    qDebug() << "windows:" << windowSize.width() << " " << windowSize.height() << endl;
-    qDebug() << "scale:  " << scaleX << " " << scaleY << endl;
     painter.scale(scaleX, scaleY);
 
     QWidget::paintEvent(event);
 
-    // 更新窗口
-    update();
 }
 
 void Widget::wheelEvent(QWheelEvent *event)
@@ -506,7 +515,7 @@ void Widget::wheelEvent(QWheelEvent *event)
         const int steps = delta.y() / 120;
 
         // 根据滚轮方向调整缩放因子
-        constexpr qreal scaleFactorStep = 0.1;
+        constexpr qreal scaleFactorStep = 0.01;
         m_scaleFactor += steps * scaleFactorStep;
 
         // 限制缩放因子的范围
@@ -521,7 +530,7 @@ void Widget::wheelEvent(QWheelEvent *event)
 
 void Widget::keyPressEvent(QKeyEvent *event)
 {
-    if (event->key() == Qt::Key_Control)
+    if (event->modifiers() == Qt::ControlModifier)
     {
         m_ctrlPressed = true;
     }
@@ -531,7 +540,7 @@ void Widget::keyPressEvent(QKeyEvent *event)
 
 void Widget::keyReleaseEvent(QKeyEvent *event)
 {
-    if (event->key() == Qt::Key_Control)
+    if (event->modifiers() != Qt::ControlModifier)
     {
         m_ctrlPressed = false;
     }
@@ -583,6 +592,87 @@ void Widget::mouseReleaseEvent(QMouseEvent *event)
     }
 
     QWidget::mouseReleaseEvent(event);
+}
+
+void Widget::uploadFile()
+{
+    // 打开文件对话框，选择要上传的文件
+    QString filePath = QFileDialog::getOpenFileName(this, "Select spi!");
+
+    // 检查文件路径是否有效
+    if (!filePath.isEmpty())
+    {
+        // 创建网络请求
+        QNetworkRequest request;
+        request.setUrl(QUrl("http://localhost:5000/upload"));  // 替换为后端主机的上传文件接口地址
+
+        qDebug() << "Select a file in: " << filePath <<endl;
+
+        // 打开文件
+        QFile file(filePath);
+        if (file.open(QIODevice::ReadOnly))
+        {
+            // 创建网络访问管理器
+            QNetworkAccessManager* manager = new QNetworkAccessManager(this);
+            // 构建多部分请求
+            QHttpMultiPart* multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
+            // 创建文件字段
+            QHttpPart filePart;
+            filePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"file\"; filename=\"file.spi\"")); // 指定字段名称和文件名
+            QFile* file = new QFile(filePath); // 创建文件对象
+            file->open(QIODevice::ReadOnly);
+            filePart.setBodyDevice(file);
+            file->setParent(multiPart); // 设置文件对象的父对象为多部分请求，确保在请求完成后自动释放
+            multiPart->append(filePart);
+
+            // 发送POST请求上传文件
+            QNetworkRequest request(QUrl("http://localhost:5000/upload")); // 替换为实际的后端接口 URL
+            request.setHeader(QNetworkRequest::ContentTypeHeader, QVariant("multipart/form-data; boundary=" + multiPart->boundary()));
+
+            QNetworkReply* reply = manager->post(request, multiPart);
+
+            // 连接请求完成信号到槽函数
+            connect(reply, &QNetworkReply::finished, this, [=]() {
+                // 检查请求是否成功
+                if (reply->error() == QNetworkReply::NoError)
+                {
+                    // 生成保存文件的路径
+                    QString saveFilePath = QCoreApplication::applicationDirPath() + "/result.txt";
+                    // 保存返回的结果到本地文件
+                    QFile file(saveFilePath);
+                    if (file.open(QIODevice::WriteOnly))
+                    {
+                        file.write(reply->readAll());
+                        file.close();
+
+                        // 保存文件成功后，更新成员变量和重绘
+                        resultFilePath = saveFilePath;
+                        qDebug() << "Saving the result in :" << resultFilePath << endl;
+                        have_new_file = true;
+                        update();
+                    }
+                    else
+                    {
+                        qDebug() << "Fail to save the result!";
+                    }
+                }
+                else
+                {
+                    // 请求发生错误，处理错误信息
+                    qDebug() << "Fail to send the request!" << reply->errorString();
+                }
+
+                // 释放reply对象
+                reply->deleteLater();
+                multiPart->deleteLater();
+            });
+        }
+        else
+        {
+            // 文件打开失败，处理错误信息
+            qDebug() << "Fail to open the file!";
+        }
+    }
 }
 
 Widget::~Widget()

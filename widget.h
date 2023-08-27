@@ -2,8 +2,9 @@
 #define WIDGET_H
 
 #include <QWidget>
-#include<QVector>
-#include<QString>
+#include <QVector>
+#include <QString>
+#include <QPushButton>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class Widget; }
@@ -71,5 +72,12 @@ private:
     bool m_isDragging;     // 拖动状态
     QPoint m_dragStartPosition;  // 拖动起始位置
     QPoint m_dragOffset;   // 拖动偏移量
+private:
+    QPushButton *uploadButton;
+
+    QString resultFilePath;
+    bool have_new_file;
+public:
+    void uploadFile();
 };
 #endif // WIDGET_H

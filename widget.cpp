@@ -3,18 +3,20 @@
 #include <QPainter>
 #include <QPixmap>
 #include <QFile>
-#include <QDebug>
 #include <QTextStream>
 #include <QtSvg/QSvgGenerator>
 #include <QtSvg/QSvgRenderer>
 #include <QKeyEvent>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QHttpMultiPart>
 #include <QHttpPart>
 #include <QVariant>
+#include <QMessageBox>
+#include <QComboBox>
 
 float Widget::max_4(float a,float b,float c,float d){
     if(a>=b && a>=c && a>=d)
@@ -65,10 +67,11 @@ Widget::Widget(QWidget *parent)
     , m_ctrlPressed(false)
     , m_isDragging(false)
     , have_new_file(false)
+    , retryCount(0)
 {
     setFocusPolicy(Qt::StrongFocus); // 设置焦点策略
     grabKeyboard(); // 捕获键盘事件
-
+    mainWindow = parent->parentWidget();
     ui->setupUi(this);
 }
 
@@ -136,6 +139,8 @@ void Widget::ck_gen(QPainter *painter, Device *device){
 void Widget::paintEvent(QPaintEvent * event)
 {
     if(have_new_file){
+        idx = netParam.size()-1;
+
         // 初始化数据结构
         QFile file(resultFilePath);//与文件建立联系
         if(!file.exists())//判断是否建立成功
@@ -147,362 +152,440 @@ void Widget::paintEvent(QPaintEvent * event)
             this->setStyleSheet("background-color:rgb(255,255,255)");
             this->showMaximized();//成功则窗口会最大化，这只是我用检测的方法
         }
-
+        QTextStream in(&file);
         if(file.open(QIODevice::ReadOnly|QIODevice::Text))//打开文件，以只读的方式打开文本文件
         {
-            QTextStream in(&file);
-            bool readDevice=false,readSegment=false,readInOut=false;
-            while (!in.atEnd()) {
-                QString line=in.readLine();
-                if(line=="device:"){
-                    readDevice=true;
-                    readSegment=false;
-                    readInOut=false;
-                    continue;
-                }
-                if(line=="segments:"){
-                    QVector<Segment> temp;
-                    streamVec.push_back(temp);
-                    readSegment=true;
-                    readDevice=false;
-                    readInOut=false;
-                    continue;
-                }
-                if(line=="inout:"){
-                    readInOut=true;
-                    readDevice=false;
-                    readSegment=false;
-                    continue;
-                }
-                if(readDevice){
-                    QStringList list=line.split(" ");
-                    if(list.size()==4){
-                        Device temp;
-                        Node lh;
-                        lh.x=list[1].toFloat();
-                        lh.y=list[0].toFloat();
-                        temp.name="NONAME";
-                        temp.type="NOTYPE";
-                        temp.lh=lh;
-                        temp.width=list[3].toFloat();
-                        temp.height=list[2].toFloat();
-                        deviceVec.push_back(temp);
-                        readDevice=false;
-                        //判断是否更改截图大小和坐标
-                        if((lh.x + temp.width)*20 > map_w){
-                            map_w = (lh.x + temp.width + 1)*20;
-                        }
-                        if((lh.y + temp.height)*20 > map_h){
-                            map_h = (lh.y + temp.height + 1)*20;
-                        }
-                        if(lh.x*20 <= min_mapx){
-                            min_mapx = (lh.x-1)*20;
-                        }
-                        if(lh.y*20 <= min_mapy){
-                            min_mapy = (lh.y-1)*20;
-                        }
-                        continue;
-                    }
-                    if(list.size()==6){
-                        Device temp;
-                        Node lh;
-                        lh.x=list[3].toFloat();
-                        lh.y=list[2].toFloat();
-                        temp.name=list[0];
-                        temp.type=list[1];
-                        temp.lh=lh;
-                        temp.width=list[5].toFloat();
-                        temp.height=list[4].toFloat();
-                        deviceVec.push_back(temp);
-                        readDevice=false;
-                        //判断是否更改截图大小
-                        if((lh.x + temp.width)*20 > map_w){
-                            map_w = (lh.x + temp.width + 1)*20;
-                        }
-                        if((lh.y + temp.height)*20 > map_h){
-                            map_h = (lh.y + temp.height + 1)*20;
-                        }
-                        if(lh.x*20 <= min_mapx){
-                            min_mapx = (lh.x-1)*20;
-                        }
-                        if(lh.y*20 <= min_mapy){
-                            min_mapy = (lh.y-1)*20;
-                        }
-                        continue;
-                    }
-                }
-                if(readSegment){
-                    QStringList list=line.split(" ");
-                    Segment tempSegment;
-                    Node start;
-                    Node end;
-                    start.x=list[1].toFloat();
-                    start.y=list[0].toFloat();
-                    end.x=list[3].toFloat();
-                    end.y=list[2].toFloat();
-                    tempSegment.n1=start;
-                    tempSegment.n2=end;
-                    streamVec[streamVec.size()-1].push_back(tempSegment);
-                    //判断是否更改截图大小
-                    if(start.x*20 >= map_w){
-                        map_w = (start.x + 1)*20;
-                    }
-                    if(end.x*20 >= map_w){
-                        map_w = (end.x + 1)*20;
-                    }
-                    if(start.y*20 >= map_h){
-                        map_h = (start.y + 1)*20;
-                    }
-                    if(end.y*20 >= map_h){
-                        map_h = (end.y + 1)*20;
-                    }
-                    if(start.x*20 <= min_mapx){
-                        min_mapx = (start.x - 1)*20;
-                    }
-                    if(end.x*20 <= min_mapx){
-                        min_mapx = (end.x - 1)*20;
-                    }
-                    if(start.y*20 <= min_mapy){
-                        min_mapy = (start.y - 1)*20;
-                    }
-                    if(end.y*20 <= min_mapy){
-                        min_mapy = (end.y - 1)*20;
-                    }
-                }
-                if(readInOut){
-                    QStringList list=line.split(" ");
-                    Segment tempSInOut;
-                    Node StInOut;
-                    Node EnInOut;
-                    if(list.size()==4){
-                        StInOut.x=list[1].toFloat();
-                        StInOut.y=list[0].toFloat();
-                        EnInOut.x=list[3].toFloat();
-                        EnInOut.y=list[2].toFloat();
-                        tempSInOut.n1=StInOut;
-                        tempSInOut.n2=EnInOut;
-                        inoutVec.push_back(tempSInOut);
-                    }
-                    if(list.size()==6){
-                        StInOut.x=list[3].toFloat();
-                        StInOut.y=list[2].toFloat();
-                        EnInOut.x=list[5].toFloat();
-                        EnInOut.y=list[4].toFloat();
-                        tempSInOut.n1=StInOut;
-                        tempSInOut.n2=EnInOut;
-                        tempSInOut.in_out=list[0];
-                        tempSInOut.name=list[1];
-                        inoutVec.push_back(tempSInOut);
-                    }
+            while(true){
+                Net cur_net;
+                // 重置缩放和偏移因子
+                m_scaleFactor = 1.0;
+                m_dragOffset = QPoint();
+                have_new_file=false;
 
-                    //判断是否更改截图大小
-                    if(StInOut.x*20+(tempSInOut.name.size()-1)*9 >= map_w){
-                        map_w = (StInOut.x + 1)*20+(tempSInOut.name.size()-1)*9;
+                bool readDevice=false,readSegment=false,readInOut=false,aNewList=false;
+                bool readNetName=false;
+                while (!in.atEnd()) {
+                    QString line=in.readLine();
+                    if(line=="device:"){
+                        readDevice=true;
+                        readSegment=false;
+                        readInOut=false;
+                        readNetName=false;
+                        continue;
                     }
-                    if(EnInOut.x*20+(tempSInOut.name.size()-1)*9 >= map_w){
-                        map_w = (EnInOut.x + 1)*20+(tempSInOut.name.size()-1)*9;
+                    if(line=="segments:"){
+                        QVector<Segment> temp;
+                        cur_net.streamVec.push_back(temp);
+                        readSegment=true;
+                        readDevice=false;
+                        readInOut=false;
+                        readNetName=false;
+                        continue;
                     }
-                    if(StInOut.y*20 >= map_h){
-                        map_h = (StInOut.y + 1)*20;
+                    if(line=="inout:"){
+                        readInOut=true;
+                        readDevice=false;
+                        readSegment=false;
+                        readNetName=false;
+                        continue;
                     }
-                    if(EnInOut.y*20 >= map_h){
-                        map_h = (EnInOut.y + 1)*20;
+                    if(line=="NAME:"){
+                        readInOut=false;
+                        readDevice=false;
+                        readSegment=false;
+                        readNetName=true;
+                        continue;
                     }
-                    if(StInOut.x*20-(tempSInOut.name.size()-1)*9 <= min_mapx){
-                        min_mapx = (StInOut.x - 1)*20-(tempSInOut.name.size()-1)*9;
+                    if(line=="--NETLIST---"){
+                        qDebug()<<cur_net.name<<endl;
+                        idx=netParam.size();
+                        // 判断当前网表是否已经在netParam中
+                        bool already_in = false;
+                        for (int i=0; i<netParam.size(); i++) {
+                            if(netParam[i].name == cur_net.name) {
+                                idx=i;
+                                already_in = true;
+                                break;
+                            }
+                        }
+                        if(!already_in){
+                            netParam.push_back(cur_net);
+                            QComboBox* comboBox = mainWindow->findChild<QComboBox*>();
+                            if(comboBox)
+                            {
+                                comboBox->addItem(netParam[idx].name);
+                            }
+                        }
+                        aNewList=true;
+                        break;
                     }
-                    if(EnInOut.x*20-(tempSInOut.name.size()-1)*9 <= min_mapx){
-                        min_mapx = (EnInOut.x - 1)*20-(tempSInOut.name.size()-1)*9;
+                    if(readDevice){
+                        QStringList list=line.split(" ");
+                        if(list.size()==4){
+                            Device temp;
+                            Node lh;
+                            lh.x=list[1].toFloat();
+                            lh.y=list[0].toFloat();
+                            temp.name="NONAME";
+                            temp.type="NOTYPE";
+                            temp.lh=lh;
+                            temp.width=list[3].toFloat();
+                            temp.height=list[2].toFloat();
+                            cur_net.deviceVec.push_back(temp);
+                            readDevice=false;
+                            //判断是否更改截图大小和坐标
+                            if((lh.x + temp.width)*20 > cur_net.map_w){
+                                cur_net.map_w = (lh.x + temp.width + 1)*20;
+                            }
+                            if((lh.y + temp.height)*20 > cur_net.map_h){
+                                cur_net.map_h = (lh.y + temp.height + 1)*20;
+                            }
+                            if(lh.x*20 <= cur_net.min_mapx){
+                                cur_net.min_mapx = (lh.x-1)*20;
+                            }
+                            if(lh.y*20 <= cur_net.min_mapy){
+                                cur_net.min_mapy = (lh.y-1)*20;
+                            }
+                            continue;
+                        }
+                        if(list.size()==6){
+                            Device temp;
+                            Node lh;
+                            lh.x=list[3].toFloat();
+                            lh.y=list[2].toFloat();
+                            temp.name=list[0];
+                            temp.type=list[1];
+                            temp.lh=lh;
+                            temp.width=list[5].toFloat();
+                            temp.height=list[4].toFloat();
+                            cur_net.deviceVec.push_back(temp);
+                            readDevice=false;
+                            //判断是否更改截图大小
+                            if((lh.x + temp.width)*20 > cur_net.map_w){
+                                cur_net.map_w = (lh.x + temp.width + 1)*20;
+                            }
+                            if((lh.y + temp.height)*20 > cur_net.map_h){
+                                cur_net.map_h = (lh.y + temp.height + 1)*20;
+                            }
+                            if(lh.x*20 <= cur_net.min_mapx){
+                                cur_net.min_mapx = (lh.x-1)*20;
+                            }
+                            if(lh.y*20 <= cur_net.min_mapy){
+                                cur_net.min_mapy = (lh.y-1)*20;
+                            }
+                            continue;
+                        }
                     }
-                    if(StInOut.y*20 <= min_mapy){
-                        min_mapy = (StInOut.y - 1)*20;
+                    if(readSegment){
+                        QStringList list=line.split(" ");
+                        Segment tempSegment;
+                        Node start;
+                        Node end;
+                        start.x=list[1].toFloat();
+                        start.y=list[0].toFloat();
+                        end.x=list[3].toFloat();
+                        end.y=list[2].toFloat();
+                        tempSegment.n1=start;
+                        tempSegment.n2=end;
+                        cur_net.streamVec[cur_net.streamVec.size()-1].push_back(tempSegment);
+                        //判断是否更改截图大小
+                        if(start.x*20 >= cur_net.map_w){
+                            cur_net.map_w = (start.x + 1)*20;
+                        }
+                        if(end.x*20 >= cur_net.map_w){
+                           cur_net. map_w = (end.x + 1)*20;
+                        }
+                        if(start.y*20 >= cur_net.map_h){
+                            cur_net.map_h = (start.y + 1)*20;
+                        }
+                        if(end.y*20 >= cur_net.map_h){
+                            cur_net.map_h = (end.y + 1)*20;
+                        }
+                        if(start.x*20 <= cur_net.min_mapx){
+                            cur_net.min_mapx = (start.x - 1)*20;
+                        }
+                        if(end.x*20 <= cur_net.min_mapx){
+                            cur_net.min_mapx = (end.x - 1)*20;
+                        }
+                        if(start.y*20 <= cur_net.min_mapy){
+                            cur_net.min_mapy = (start.y - 1)*20;
+                        }
+                        if(end.y*20 <= cur_net.min_mapy){
+                            cur_net.min_mapy = (end.y - 1)*20;
+                        }
                     }
-                    if(EnInOut.y*20 <= min_mapy){
-                        min_mapy = (EnInOut.y - 1)*20;
+                    if(readInOut){
+                        QStringList list=line.split(" ");
+                        Segment tempSInOut;
+                        Node StInOut;
+                        Node EnInOut;
+                        if(list.size()==4){
+                            StInOut.x=list[1].toFloat();
+                            StInOut.y=list[0].toFloat();
+                            EnInOut.x=list[3].toFloat();
+                            EnInOut.y=list[2].toFloat();
+                            tempSInOut.n1=StInOut;
+                            tempSInOut.n2=EnInOut;
+                            cur_net.inoutVec.push_back(tempSInOut);
+                        }
+                        if(list.size()==6){
+                            StInOut.x=list[3].toFloat();
+                            StInOut.y=list[2].toFloat();
+                            EnInOut.x=list[5].toFloat();
+                            EnInOut.y=list[4].toFloat();
+                            tempSInOut.n1=StInOut;
+                            tempSInOut.n2=EnInOut;
+                            tempSInOut.in_out=list[0];
+                            tempSInOut.name=list[1];
+                            cur_net.inoutVec.push_back(tempSInOut);
+                        }
+
+                        //判断是否更改截图大小
+                        if(StInOut.x*20+(tempSInOut.name.size()-1)*9 >= cur_net.map_w){
+                            cur_net.map_w = (StInOut.x + 1)*20+(tempSInOut.name.size()-1)*9;
+                        }
+                        if(EnInOut.x*20+(tempSInOut.name.size()-1)*9 >= cur_net.map_w){
+                            cur_net.map_w = (EnInOut.x + 1)*20+(tempSInOut.name.size()-1)*9;
+                        }
+                        if(StInOut.y*20 >= cur_net.map_h){
+                            cur_net.map_h = (StInOut.y + 1)*20;
+                        }
+                        if(EnInOut.y*20 >= cur_net.map_h){
+                            cur_net.map_h = (EnInOut.y + 1)*20;
+                        }
+                        if(StInOut.x*20-(tempSInOut.name.size()-1)*9 <= cur_net.min_mapx){
+                            cur_net.min_mapx = (StInOut.x - 1)*20-(tempSInOut.name.size()-1)*9;
+                        }
+                        if(EnInOut.x*20-(tempSInOut.name.size()-1)*9 <= cur_net.min_mapx){
+                            cur_net.min_mapx = (EnInOut.x - 1)*20-(tempSInOut.name.size()-1)*9;
+                        }
+                        if(StInOut.y*20 <= cur_net.min_mapy){
+                            cur_net.min_mapy = (StInOut.y - 1)*20;
+                        }
+                        if(EnInOut.y*20 <= cur_net.min_mapy){
+                            cur_net.min_mapy = (EnInOut.y - 1)*20;
+                        }
+                    }
+                    if(readNetName){
+                        cur_net.name=line;
                     }
                 }
+                if(aNewList) continue;
+                file.close();
+
+                filePath = "";
+                retryCount = 0;
+                QComboBox* comboBox = mainWindow->findChild<QComboBox*>();
+                if(comboBox)
+                {
+                    comboBox->setCurrentIndex(idx);
+                }
+                break;
             }
-            file.close();
         }
         else{
              qDebug()<<file.errorString();
         }
-        have_new_file = false;
     }
 
-    QPainter painter(this);
-    painter.scale(m_scaleFactor, m_scaleFactor);
-    painter.translate(m_dragOffset);
-    //绘制元件
-    painter.setBrush(Qt::gray);
-    for(int i=0;i<deviceVec.size();i++){
-        QPen pen(QColor(138,76,76));//13,238,255
-        pen.setWidth(2);
-        painter.setPen(pen);
-        if(deviceVec[i].type=="inv"){
-            this->inv(&painter,&deviceVec[i]);
-        }
-        else if (deviceVec[i].type=="nand2") {
-            this->nand2(&painter,&deviceVec[i]);
-        }
-        else if (deviceVec[i].type=="DFF") {
-            this->DFF(&painter,&deviceVec[i]);
-        }
-        else if (deviceVec[i].type=="Latch"){
-            this->Latch(&painter,&deviceVec[i]);
-        }
-        else if (deviceVec[i].type=="ck_gen") {
-            this->ck_gen(&painter,&deviceVec[i]);
-        }
-        else {
-            painter.drawRect(deviceVec[i].lh.x*20,deviceVec[i].lh.y*20,deviceVec[i].width*20,deviceVec[i].height*20);
-        }
-        QFont font("宋体",10);
-        //设置字母大小写
-        //font.setCapitalization(QFont::SmallCaps);
-        painter.setFont(font);
-        painter.drawText((deviceVec[i].lh.x-1)*20,deviceVec[i].lh.y*20+deviceVec[i].height*20,(deviceVec[i].width+2)*20,17,Qt::AlignCenter,deviceVec[i].type,nullptr);
-        painter.drawText((deviceVec[i].lh.x-1)*20,deviceVec[i].lh.y*20-17,(deviceVec[i].width+2)*20,17,Qt::AlignCenter,deviceVec[i].name,nullptr);
-        //painter.drawPixmap(deviceVec[i].lh.x*20,deviceVec[i].lh.y*20,deviceVec[i].width*20,deviceVec[i].height*20,QPixmap(":/new/prefix1/NAVD.png"));
-    }
-    //绘制Segment
-    for(int i=0;i<streamVec.size();i++){
-        QVector<Segment> portraitStream;//纵向Segment
-        QVector<Segment> temp_portraitStream;//纵向未连接Segment
-        QVector<QPair<int,int>> pSp;//纵向线端点连线数--决定是否需要绘制point
-        QVector<Segment> transverseStream;//横向Segment
-        for(int j=0;j<streamVec[i].size();j++){
-            QPen pen(QColor(31,0,214));//255,255,13
+    if(idx >= 0){
+        QPainter painter(this);
+        painter.scale(m_scaleFactor, m_scaleFactor);
+        painter.translate(m_dragOffset);
+        //绘制元件
+        painter.setBrush(Qt::gray);
+        for(int i=0;i<netParam[idx].deviceVec.size();i++){
+            QPen pen(QColor(138,76,76));//13,238,255
             pen.setWidth(2);
             painter.setPen(pen);
-            painter.drawLine(QPoint(streamVec[i][j].n1.x*20,streamVec[i][j].n1.y*20),QPoint(streamVec[i][j].n2.x*20,streamVec[i][j].n2.y*20));
-            if(streamVec[i][j].n1.x==streamVec[i][j].n2.x){
-                temp_portraitStream.push_back(streamVec[i][j]);
-                //QPair<int,int> temp(1,1);
-                //pSp.push_back(temp);
-            }else {
-                transverseStream.push_back(streamVec[i][j]);
+            if(netParam[idx].deviceVec[i].type=="inv"){
+                this->inv(&painter,&netParam[idx].deviceVec[i]);
             }
+            else if (netParam[idx].deviceVec[i].type=="nand2") {
+                this->nand2(&painter,&netParam[idx].deviceVec[i]);
+            }
+            else if (netParam[idx].deviceVec[i].type=="DFF") {
+                this->DFF(&painter,&netParam[idx].deviceVec[i]);
+            }
+            else if (netParam[idx].deviceVec[i].type=="Latch"){
+                this->Latch(&painter,&netParam[idx].deviceVec[i]);
+            }
+            else if (netParam[idx].deviceVec[i].type=="ck_gen") {
+                this->ck_gen(&painter,&netParam[idx].deviceVec[i]);
+            }
+            else {
+                painter.drawRect(netParam[idx].deviceVec[i].lh.x*20,
+                                 netParam[idx].deviceVec[i].lh.y*20,
+                                 netParam[idx].deviceVec[i].width*20,
+                                 netParam[idx].deviceVec[i].height*20);
+            }
+            QFont font("宋体",10);
+            //设置字母大小写
+            //font.setCapitalization(QFont::SmallCaps);
+            painter.setFont(font);
+            painter.drawText((netParam[idx].deviceVec[i].lh.x-1)*20,
+                             netParam[idx].deviceVec[i].lh.y*20+netParam[idx].deviceVec[i].height*20,
+                             (netParam[idx].deviceVec[i].width+2)*20,17,Qt::AlignCenter,
+                             netParam[idx].deviceVec[i].type,nullptr);
+            painter.drawText((netParam[idx].deviceVec[i].lh.x-1)*20,
+                             netParam[idx].deviceVec[i].lh.y*20-17,
+                             (netParam[idx].deviceVec[i].width+2)*20,17,Qt::AlignCenter,
+                             netParam[idx].deviceVec[i].name,nullptr);
+            //painter.drawPixmap(deviceVec[i].lh.x*20,deviceVec[i].lh.y*20,deviceVec[i].width*20,deviceVec[i].height*20,QPixmap(":/new/prefix1/NAVD.png"));
         }
-        QVector<bool> pb_ornot;
-        for(int j=0;j<temp_portraitStream.size();j++){
-            pb_ornot.push_back(true);
-        }
-        for(int j=0;j<temp_portraitStream.size();j++){
-            Segment resultEl;
-            resultEl.n1.x=temp_portraitStream[j].n1.x;
-            resultEl.n1.y=temp_portraitStream[j].n1.y;
-            resultEl.n2.x=temp_portraitStream[j].n2.x;
-            resultEl.n2.y=temp_portraitStream[j].n2.y;
-            for(int k=j+1;k<temp_portraitStream.size();k++){
-                if(temp_portraitStream[k].n1.x==temp_portraitStream[j].n1.x){
-                    resultEl.n1.x=temp_portraitStream[k].n1.x;
-                    resultEl.n1.y=max_4(temp_portraitStream[j].n1.y,temp_portraitStream[j].n2.y,temp_portraitStream[k].n1.y,temp_portraitStream[k].n2.y);
-                    resultEl.n2.x=temp_portraitStream[k].n1.x;
-                    resultEl.n2.y=min_4(temp_portraitStream[j].n1.y,temp_portraitStream[j].n2.y,temp_portraitStream[k].n1.y,temp_portraitStream[k].n2.y);
-                    pb_ornot[k]=false;
-                }
-            }
-            if(pb_ornot[j]){
-                portraitStream.push_back(resultEl);
-                QPair<int,int> temp(1,1);
-                pSp.push_back(temp);
-            }
-        }
-        for(int j=0;j<transverseStream.size();j++){
-            int portrait1 = -1;
-            int portrait2 = -1;
-            for(int k=0;k<portraitStream.size();k++){
-                if(transverseStream[j].n1.x==portraitStream[k].n1.x){
-                    portrait1 = k;
-                }
-                if(transverseStream[j].n2.x==portraitStream[k].n1.x){
-                    portrait2 = k;
-                }
-            }
-            if(portrait1>-1){
-                if((transverseStream[j].n1.y > portraitStream[portrait1].n1.y && transverseStream[j].n1.y < portraitStream[portrait1].n2.y) ||
-                      (transverseStream[j].n1.y < portraitStream[portrait1].n1.y && transverseStream[j].n1.y > portraitStream[portrait1].n2.y)){
-                    QPen pen(QColor(31,0,214));
-                    pen.setWidth(5);
-                    painter.setPen(pen);
-                    painter.drawPoint(transverseStream[j].n1.x*20,transverseStream[j].n1.y*20);
-                }
-                if(transverseStream[j].n1.y == portraitStream[portrait1].n1.y){
-                    pSp[portrait1].first++;
-                }
-                if(transverseStream[j].n1.y == portraitStream[portrait1].n2.y){
-                    pSp[portrait1].second++;
-                }
-            }
-            if(portrait2>-1){
-                if((transverseStream[j].n2.y > portraitStream[portrait2].n1.y && transverseStream[j].n2.y < portraitStream[portrait2].n2.y) ||
-                      (transverseStream[j].n2.y < portraitStream[portrait2].n1.y && transverseStream[j].n2.y > portraitStream[portrait2].n2.y)){
-                    QPen pen(QColor(31,0,214));
-                    pen.setWidth(5);
-                    painter.setPen(pen);
-                    painter.drawPoint(transverseStream[j].n2.x*20,transverseStream[j].n2.y*20);
-                }
-                if(transverseStream[j].n2.y == portraitStream[portrait2].n1.y){
-                    pSp[portrait2].first++;
-                }
-                if(transverseStream[j].n2.y == portraitStream[portrait2].n2.y){
-                    pSp[portrait2].second++;
-                }
-            }
-        }
-        for(int j=0;j<transverseStream.size();j++){
-            for(int k=0;k<portraitStream.size();k++){
-                if(Cross(transverseStream[j],portraitStream[k])){
-                    QPen pen(QColor(31,0,214));
-                    pen.setWidth(5);
-                    painter.setPen(pen);
-                    painter.drawPoint(portraitStream[k].n1.x*20,transverseStream[j].n1.y*20);
-                }
-            }
-        }
-        for(int j=0;j<pSp.size();j++){
-            if(pSp[j].first>2){
-                QPen pen(QColor(31,0,214));
-                pen.setWidth(5);
+        //绘制Segment
+        for(int i=0;i<netParam[idx].streamVec.size();i++){
+            QVector<Segment> portraitStream;//纵向Segment
+            QVector<Segment> temp_portraitStream;//纵向未连接Segment
+            QVector<QPair<int,int>> pSp;//纵向线端点连线数--决定是否需要绘制point
+            QVector<Segment> transverseStream;//横向Segment
+            for(int j=0;j<netParam[idx].streamVec[i].size();j++){
+                QPen pen(QColor(31,0,214));//255,255,13
+                pen.setWidth(2);
                 painter.setPen(pen);
-                painter.drawPoint(portraitStream[j].n1.x*20,portraitStream[j].n1.y*20);
+                painter.drawLine(QPoint(netParam[idx].streamVec[i][j].n1.x*20,
+                                        netParam[idx].streamVec[i][j].n1.y*20),
+                                 QPoint(netParam[idx].streamVec[i][j].n2.x*20,
+                                        netParam[idx].streamVec[i][j].n2.y*20));
+                if(netParam[idx].streamVec[i][j].n1.x==netParam[idx].streamVec[i][j].n2.x){
+                    temp_portraitStream.push_back(netParam[idx].streamVec[i][j]);
+                    //QPair<int,int> temp(1,1);
+                    //pSp.push_back(temp);
+                }else {
+                    transverseStream.push_back(netParam[idx].streamVec[i][j]);
+                }
             }
-            if(pSp[j].second>2){
-                QPen pen(QColor(31,0,214));
-                pen.setWidth(5);
-                painter.setPen(pen);
-                painter.drawPoint(portraitStream[j].n2.x*20,portraitStream[j].n2.y*20);
+            QVector<bool> pb_ornot;
+            for(int j=0;j<temp_portraitStream.size();j++){
+                pb_ornot.push_back(true);
+            }
+            for(int j=0;j<temp_portraitStream.size();j++){
+                Segment resultEl;
+                resultEl.n1.x=temp_portraitStream[j].n1.x;
+                resultEl.n1.y=temp_portraitStream[j].n1.y;
+                resultEl.n2.x=temp_portraitStream[j].n2.x;
+                resultEl.n2.y=temp_portraitStream[j].n2.y;
+                for(int k=j+1;k<temp_portraitStream.size();k++){
+                    if(temp_portraitStream[k].n1.x==temp_portraitStream[j].n1.x){
+                        resultEl.n1.x=temp_portraitStream[k].n1.x;
+                        resultEl.n1.y=max_4(temp_portraitStream[j].n1.y,temp_portraitStream[j].n2.y,temp_portraitStream[k].n1.y,temp_portraitStream[k].n2.y);
+                        resultEl.n2.x=temp_portraitStream[k].n1.x;
+                        resultEl.n2.y=min_4(temp_portraitStream[j].n1.y,temp_portraitStream[j].n2.y,temp_portraitStream[k].n1.y,temp_portraitStream[k].n2.y);
+                        pb_ornot[k]=false;
+                    }
+                }
+                if(pb_ornot[j]){
+                    portraitStream.push_back(resultEl);
+                    QPair<int,int> temp(1,1);
+                    pSp.push_back(temp);
+                }
+            }
+            for(int j=0;j<transverseStream.size();j++){
+                int portrait1 = -1;
+                int portrait2 = -1;
+                for(int k=0;k<portraitStream.size();k++){
+                    if(transverseStream[j].n1.x==portraitStream[k].n1.x){
+                        portrait1 = k;
+                    }
+                    if(transverseStream[j].n2.x==portraitStream[k].n1.x){
+                        portrait2 = k;
+                    }
+                }
+                if(portrait1>-1){
+                    if((transverseStream[j].n1.y > portraitStream[portrait1].n1.y && transverseStream[j].n1.y < portraitStream[portrait1].n2.y) ||
+                          (transverseStream[j].n1.y < portraitStream[portrait1].n1.y && transverseStream[j].n1.y > portraitStream[portrait1].n2.y)){
+                        QPen pen(QColor(31,0,214));
+                        pen.setWidth(5);
+                        painter.setPen(pen);
+                        painter.drawPoint(transverseStream[j].n1.x*20,transverseStream[j].n1.y*20);
+                    }
+                    if(transverseStream[j].n1.y == portraitStream[portrait1].n1.y){
+                        pSp[portrait1].first++;
+                    }
+                    if(transverseStream[j].n1.y == portraitStream[portrait1].n2.y){
+                        pSp[portrait1].second++;
+                    }
+                }
+                if(portrait2>-1){
+                    if((transverseStream[j].n2.y > portraitStream[portrait2].n1.y && transverseStream[j].n2.y < portraitStream[portrait2].n2.y) ||
+                          (transverseStream[j].n2.y < portraitStream[portrait2].n1.y && transverseStream[j].n2.y > portraitStream[portrait2].n2.y)){
+                        QPen pen(QColor(31,0,214));
+                        pen.setWidth(5);
+                        painter.setPen(pen);
+                        painter.drawPoint(transverseStream[j].n2.x*20,transverseStream[j].n2.y*20);
+                    }
+                    if(transverseStream[j].n2.y == portraitStream[portrait2].n1.y){
+                        pSp[portrait2].first++;
+                    }
+                    if(transverseStream[j].n2.y == portraitStream[portrait2].n2.y){
+                        pSp[portrait2].second++;
+                    }
+                }
+            }
+            for(int j=0;j<transverseStream.size();j++){
+                for(int k=0;k<portraitStream.size();k++){
+                    if(Cross(transverseStream[j],portraitStream[k])){
+                        QPen pen(QColor(31,0,214));
+                        pen.setWidth(5);
+                        painter.setPen(pen);
+                        painter.drawPoint(portraitStream[k].n1.x*20,transverseStream[j].n1.y*20);
+                    }
+                }
+            }
+            for(int j=0;j<pSp.size();j++){
+                if(pSp[j].first>2){
+                    QPen pen(QColor(31,0,214));
+                    pen.setWidth(5);
+                    painter.setPen(pen);
+                    painter.drawPoint(portraitStream[j].n1.x*20,portraitStream[j].n1.y*20);
+                }
+                if(pSp[j].second>2){
+                    QPen pen(QColor(31,0,214));
+                    pen.setWidth(5);
+                    painter.setPen(pen);
+                    painter.drawPoint(portraitStream[j].n2.x*20,portraitStream[j].n2.y*20);
+                }
             }
         }
-    }
-    //绘制InOut
-    for(int i=0;i<inoutVec.size();i++){
-        QPen pen(QColor(138,76,76));//255,255,13
-        pen.setWidth(2);
-        painter.setPen(pen);
-        //painter.drawRect(inoutVec[i].n1.x*20,inoutVec[i].n1.y*20,20*20,20*20);
-        if(inoutVec[i].name!="" && inoutVec[i].in_out!=""){
-            if(inoutVec[i].in_out=="in"){
-                int minEnd_x=20 * (inoutVec[i].n1.x<inoutVec[i].n2.x ? inoutVec[i].n1.x : inoutVec[i].n2.x);
-                painter.drawText(minEnd_x-(inoutVec[i].name.size()-1)*9,inoutVec[i].n1.y*20-17,inoutVec[i].name.size()*9,17,Qt::AlignCenter,inoutVec[i].name,nullptr);
-                qDebug()<<inoutVec[i].name<<endl;
+        //绘制InOut
+        for(int i=0;i<netParam[idx].inoutVec.size();i++){
+            QPen pen(QColor(138,76,76));//255,255,13
+            pen.setWidth(2);
+            painter.setPen(pen);
+            //painter.drawRect(inoutVec[i].n1.x*20,inoutVec[i].n1.y*20,20*20,20*20);
+            if(netParam[idx].inoutVec[i].name!="" && netParam[idx].inoutVec[i].in_out!=""){
+                if(netParam[idx].inoutVec[i].in_out=="in"){
+                    int minEnd_x=20 * (netParam[idx].inoutVec[i].n1.x<netParam[idx].inoutVec[i].n2.x
+                                       ? netParam[idx].inoutVec[i].n1.x
+                                       : netParam[idx].inoutVec[i].n2.x);
+                    painter.drawText(minEnd_x-(netParam[idx].inoutVec[i].name.size()-1)*9,
+                                     netParam[idx].inoutVec[i].n1.y*20-17,
+                                     netParam[idx].inoutVec[i].name.size()*9,17,Qt::AlignCenter,
+                                     netParam[idx].inoutVec[i].name,nullptr);
+                    qDebug()<<netParam[idx].inoutVec[i].name<<endl;
+                }
+                if(netParam[idx].inoutVec[i].in_out=="out"){
+                    int maxEnd_x=20 * (netParam[idx].inoutVec[i].n1.x>netParam[idx].inoutVec[i].n2.x
+                                       ? netParam[idx].inoutVec[i].n1.x
+                                       : netParam[idx].inoutVec[i].n2.x);
+                    painter.drawText(maxEnd_x-9,netParam[idx].inoutVec[i].n1.y*20-17,
+                                     netParam[idx].inoutVec[i].name.size()*9,17,Qt::AlignCenter,
+                                     netParam[idx].inoutVec[i].name,nullptr);
+                }
             }
-            if(inoutVec[i].in_out=="out"){
-                int maxEnd_x=20 * (inoutVec[i].n1.x>inoutVec[i].n2.x ? inoutVec[i].n1.x : inoutVec[i].n2.x);
-                painter.drawText(maxEnd_x-9,inoutVec[i].n1.y*20-17,inoutVec[i].name.size()*9,17,Qt::AlignCenter,inoutVec[i].name,nullptr);
-            }
+            painter.drawLine(QPoint(netParam[idx].inoutVec[i].n1.x*20,netParam[idx].inoutVec[i].n1.y*20),
+                             QPoint(netParam[idx].inoutVec[i].n2.x*20,netParam[idx].inoutVec[i].n2.y*20));
         }
-        painter.drawLine(QPoint(inoutVec[i].n1.x*20,inoutVec[i].n1.y*20),QPoint(inoutVec[i].n2.x*20,inoutVec[i].n2.y*20));
+
+        QSize windowSize = size();
+        qreal ratio1 = qreal(this->netParam[idx].map_w)/windowSize.width();
+        qreal ratio2 = qreal(this->netParam[idx].map_h)/windowSize.height();
+        qreal ratio = qMax(ratio1, ratio2);
+        qreal scaleX = qreal(this->netParam[idx].map_w)/ratio;
+        qreal scaleY = qreal(this->netParam[idx].map_h)/ratio;
+        painter.scale(scaleX, scaleY);
     }
 
-    QSize windowSize = size();
-    qreal ratio1 = qreal(this->map_w)/windowSize.width();
-    qreal ratio2 = qreal(this->map_h)/windowSize.height();
-    qreal ratio = qMax(ratio1, ratio2);
-    qreal scaleX = qreal(this->map_w)/ratio;
-    qreal scaleY = qreal(this->map_h)/ratio;
-    painter.scale(scaleX, scaleY);
 
     QWidget::paintEvent(event);
 
@@ -555,6 +638,47 @@ void Widget::mousePressEvent(QMouseEvent *event)
         m_isDragging = true;
         m_dragStartPosition = event->pos();
     }
+    else if(event->button() == Qt::RightButton)
+    {
+        QPoint transformedPos = event->pos();
+        transformedPos /= m_scaleFactor;
+        transformedPos -= m_dragOffset;
+        for(int i=0; i<netParam[idx].deviceVec.size(); i++){
+            if(netParam[idx].deviceVec[i].lh.x*20 < transformedPos.x() &&
+               netParam[idx].deviceVec[i].lh.y*20 < transformedPos.y() &&
+               netParam[idx].deviceVec[i].lh.x*20+netParam[idx].deviceVec[i].width*20 >transformedPos.x() &&
+               netParam[idx].deviceVec[i].lh.y*20+netParam[idx].deviceVec[i].height*20 >transformedPos.y())
+            {
+                int temp = idx;
+                // 遍历所有网表找是否有当前元件对应的
+                for(int j=0; j<netParam.size(); j++){
+                    if(netParam[j].name == netParam[idx].deviceVec[i].type){
+                        idx = j;
+                        break;
+                    }
+                }
+                // 若没找到对应元件的网表，则不刷新
+                if(temp==idx){
+                    QMessageBox::critical(this, tr("ERROR"), tr("未找到对应网表！"));
+                    break;
+                }
+                else{
+                    qDebug()<<"Right-click device:"<<netParam[temp].deviceVec[i].name<<", turn to net"<<netParam[idx].name<<"(idx ="<<idx<<")"<<endl;
+                    // 重置缩放和偏移因子
+                    m_scaleFactor = 1.0;
+                    m_dragOffset = QPoint();
+                    // 重置网表名称
+                    QComboBox* comboBox = mainWindow->findChild<QComboBox*>();
+                    if(comboBox)
+                    {
+                        comboBox->setCurrentIndex(idx);
+                    }
+                    update();
+                    break;
+                }
+            }
+        }
+    }
 
     QWidget::mousePressEvent(event);
 }
@@ -596,21 +720,27 @@ void Widget::mouseReleaseEvent(QMouseEvent *event)
 
 void Widget::uploadFile()
 {
-    // 打开文件对话框，选择要上传的文件
-    QString filePath = QFileDialog::getOpenFileName(this, "Select spi!");
+    if (filePath.isEmpty()) {
+        // 打开文件对话框，选择要上传的文件
+        filePath = QFileDialog::getOpenFileName(this, "Select spi!");
+    }
 
     // 检查文件路径是否有效
     if (!filePath.isEmpty())
     {
-        // 创建网络请求
-        QNetworkRequest request;
-        request.setUrl(QUrl("http://localhost:5000/upload"));  // 替换为后端主机的上传文件接口地址
-
-        qDebug() << "Select a file in: " << filePath <<endl;
+        qDebug() << "Select the file: " << filePath <<endl;
+        QNetworkRequest request(QUrl("http://localhost:5000/upload"));
 
         // 打开文件
-        QFile file(filePath);
-        if (file.open(QIODevice::ReadOnly))
+        if (fileObj == nullptr) {
+            fileObj = new QFile(filePath);
+        } else {
+            // 关闭现有的文件对象
+            fileObj->close();
+            fileObj = new QFile(filePath);
+            qDebug() << "Reassign the file-object with the new  file-path." << endl;
+        }
+        if (fileObj->open(QIODevice::ReadOnly))
         {
             // 创建网络访问管理器
             QNetworkAccessManager* manager = new QNetworkAccessManager(this);
@@ -618,18 +748,20 @@ void Widget::uploadFile()
             QHttpMultiPart* multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
             // 创建文件字段
             QHttpPart filePart;
-            filePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"file\"; filename=\"file.spi\"")); // 指定字段名称和文件名
-            QFile* file = new QFile(filePath); // 创建文件对象
-            file->open(QIODevice::ReadOnly);
-            filePart.setBodyDevice(file);
-            file->setParent(multiPart); // 设置文件对象的父对象为多部分请求，确保在请求完成后自动释放
+            QString fileName = QFileInfo(fileObj->fileName()).fileName();
+            QString headerValue = "form-data; name=\"file\"; filename=\"%1\"";
+            headerValue = headerValue.arg(fileName);
+            filePart.setHeader(QNetworkRequest::ContentDispositionHeader,
+                               QVariant(headerValue)); // 指定字段名称和文件名
+            filePart.setBodyDevice(fileObj);
             multiPart->append(filePart);
 
             // 发送POST请求上传文件
-            QNetworkRequest request(QUrl("http://localhost:5000/upload")); // 替换为实际的后端接口 URL
-            request.setHeader(QNetworkRequest::ContentTypeHeader, QVariant("multipart/form-data; boundary=" + multiPart->boundary()));
+            request.setHeader(QNetworkRequest::ContentTypeHeader,
+                              QVariant("multipart/form-data; boundary=" + multiPart->boundary()));
 
             QNetworkReply* reply = manager->post(request, multiPart);
+
 
             // 连接请求完成信号到槽函数
             connect(reply, &QNetworkReply::finished, this, [=]() {
@@ -659,7 +791,26 @@ void Widget::uploadFile()
                 else
                 {
                     // 请求发生错误，处理错误信息
-                    qDebug() << "Fail to send the request!" << reply->errorString();
+                    qDebug() << "Fail to send the request Or Reply message error!" << reply->errorString();
+                    QByteArray errorData = reply->readAll();
+                    QString errorMessage(errorData);
+                    qDebug() << "Error Message:" << errorMessage;
+                    // 判断是否达到最大重传次数
+                    if (retryCount < maxRetryCount)
+                    {
+                        // 重传文件
+                        qDebug() << "Retrying upload...";
+                        reply->deleteLater();
+                        multiPart->deleteLater();
+                        retryCount++;
+                        qDebug() << retryCount << endl;
+                        uploadFile();
+                        return;
+                    }
+                    else
+                    {
+                        qDebug() << "Maximum retry count reached. Upload failed.";
+                    }
                 }
 
                 // 释放reply对象

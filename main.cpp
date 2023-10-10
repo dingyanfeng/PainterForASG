@@ -4,6 +4,42 @@
 #include <QApplication>
 #include <QDebug>
 #include <QVBoxLayout>
+#include <QLineEdit>
+#include <QComboBox>
+#include <QLabel>
+#include <QPlainTextEdit>
+#include <QVariant>
+
+// 自定义消息处理
+void customMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
+{
+    Q_UNUSED(context);
+
+    // 根据消息类型选择输出样式
+    QString message;
+    switch (type) {
+    case QtDebugMsg:
+        message = QString("[Debug] %1").arg(msg);
+        break;
+    case QtWarningMsg:
+        message = QString("[Warning] %1").arg(msg);
+        break;
+    case QtCriticalMsg:
+        message = QString("[Critical] %1").arg(msg);
+        break;
+    case QtFatalMsg:
+        message = QString("[Fatal] %1").arg(msg);
+        break;
+    default:
+        break;
+    }
+
+    // 在控制台输出框中显示消息
+    QPlainTextEdit *outputWidget = qobject_cast<QPlainTextEdit*>(qApp->property("outputWidget").value<QObject*>());
+    if (outputWidget) {
+        outputWidget->appendPlainText(message);
+    }
+}
 
 int main(int argc, char *argv[])
 {
@@ -24,19 +60,42 @@ int main(int argc, char *argv[])
     QVBoxLayout* rightLayout = new QVBoxLayout();
 
     QPushButton* uploadButton = new QPushButton("Upload file");
-    QPushButton* button2 = new QPushButton("按钮2");
-    QPushButton* button3 = new QPushButton("按钮3");
+    QComboBox* comboBox = new QComboBox();
+    comboBox->setFixedWidth(400);
+    QPlainTextEdit* consoleOutput = new QPlainTextEdit();
+    consoleOutput->setReadOnly(true);
+
+    // 创建标签并设置文本
+    QLabel* label = new QLabel("NetList Name: ");
+    label->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+    QFont font = label->font();
+    font.setPointSize(10);
+    label->setFont(font);
+
+    // 创建水平布局，将标签和文本框放入其中
+    QHBoxLayout* textBoxLayout = new QHBoxLayout();
+    textBoxLayout->addWidget(label);
+    textBoxLayout->addWidget(comboBox);
 
     rightLayout->addWidget(uploadButton);
-    rightLayout->addWidget(button2);
-    rightLayout->addWidget(button3);
+    rightLayout->addLayout(textBoxLayout);
+    rightLayout->addWidget(consoleOutput);
 
     centralLayout->addWidget(leftFrame);
     centralLayout->addLayout(rightLayout);
 
     layout->addLayout(centralLayout);
-
     QObject::connect(uploadButton, &QPushButton::clicked, w, &Widget::uploadFile);
+    QObject::connect(comboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), w, &Widget::refreshPaintEvent);
+
+    // 设置右侧布局的伸缩因子
+    centralLayout->setStretchFactor(leftFrame, 1);
+    centralLayout->setStretchFactor(rightLayout, 0);
+    // 将控制台输出框设为全局属性
+    a.setProperty("outputWidget", QVariant::fromValue<QObject*>(consoleOutput));
+
+    // 将默认消息处理器替换为自定义的消息处理器
+    qInstallMessageHandler(customMessageHandler);
 
     window.show();
 

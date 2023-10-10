@@ -5,6 +5,9 @@
 #include <QVector>
 #include <QString>
 #include <QPushButton>
+#include <QFile>
+#include <QLineEdit>
+#include <QDebug>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class Widget; }
@@ -30,14 +33,9 @@ struct Segment{
     Node n2;
 };
 
-class Widget : public QWidget
-{
-    Q_OBJECT
-
+struct Net{
 public:
-    Widget(QWidget *parent = nullptr);
-    ~Widget();
-public:
+    QString name="";
     float min_mapx = 0;
     float min_mapy = 0;
     float map_w = 10;
@@ -45,6 +43,19 @@ public:
     QVector<Device> deviceVec;//保存元件
     QVector<QVector<Segment>> streamVec;//保存线
     QVector<Segment> inoutVec;//输入输出线
+};
+
+class Widget : public QWidget
+{
+    Q_OBJECT
+
+public:
+    Widget(QWidget *parent = nullptr);
+    ~Widget();
+
+    QVector<Net> netParam; // 保存所有网表
+    int idx = -1;
+
 private:
     Ui::Widget *ui;
     void inv(QPainter* painter,Device* device);
@@ -53,7 +64,6 @@ private:
     void Latch(QPainter* painter,Device* device);
     void ck_gen(QPainter* painter,Device* device);
 public:
-//    void paintEvent(QPaintEvent *);
     float max_4(float a,float b,float c,float d);
     float min_4(float a,float b,float c,float d);
     bool Cross(Segment s1,Segment s2);
@@ -76,8 +86,27 @@ private:
     QPushButton *uploadButton;
 
     QString resultFilePath;
-    bool have_new_file;
+public:
+    bool have_new_file; // 重新绘图信号
 public:
     void uploadFile();
+private:
+    QString filePath;  // 文件路径
+    QFile *fileObj = nullptr;    // 文件对象
+    int retryCount;    // 重传次数
+    const int maxRetryCount = 6;  // 最大重传次数
+private:
+    QWidget* mainWindow;
+
+public slots:
+    void refreshPaintEvent(int index)
+    {
+        idx = index;
+        qDebug()<<"Choose the "<<index<<"th netlist..."<<endl;
+        // 重置缩放和偏移因子
+        m_scaleFactor = 1.0;
+        m_dragOffset = QPoint();
+        update(); // 重新绘制widget
+    }
 };
 #endif // WIDGET_H

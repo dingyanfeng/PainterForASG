@@ -46,6 +46,7 @@ int main(int argc, char *argv[])
     QApplication a(argc, argv);
     QWidget window;
     window.setWindowTitle("Schematic Generation");
+    window.showMaximized();
     QVBoxLayout* layout = new QVBoxLayout(&window);
     QHBoxLayout* centralLayout = new QHBoxLayout();
     QFrame* leftFrame = new QFrame(&window);
@@ -60,10 +61,14 @@ int main(int argc, char *argv[])
     QVBoxLayout* rightLayout = new QVBoxLayout();
 
     QPushButton* uploadButton = new QPushButton("Upload file");
+    QPushButton* IPButton = new QPushButton("SET IP First!");
+    IPButton->setStyleSheet("QPushButton { color: red; font-weight: bold; }");
     QComboBox* comboBox = new QComboBox();
     comboBox->setFixedWidth(400);
     QPlainTextEdit* consoleOutput = new QPlainTextEdit();
     consoleOutput->setReadOnly(true);
+
+
 
     // 创建标签并设置文本
     QLabel* label = new QLabel("NetList Name: ");
@@ -78,6 +83,7 @@ int main(int argc, char *argv[])
     textBoxLayout->addWidget(comboBox);
 
     rightLayout->addWidget(uploadButton);
+    rightLayout->addWidget(IPButton);
     rightLayout->addLayout(textBoxLayout);
     rightLayout->addWidget(consoleOutput);
 
@@ -86,6 +92,7 @@ int main(int argc, char *argv[])
 
     layout->addLayout(centralLayout);
     QObject::connect(uploadButton, &QPushButton::clicked, w, &Widget::uploadFile);
+    QObject::connect(IPButton, &QPushButton::clicked, w, &Widget::onUploadButtonClicked);
     QObject::connect(comboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), w, &Widget::refreshPaintEvent);
 
     // 设置右侧布局的伸缩因子

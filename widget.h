@@ -8,6 +8,9 @@
 #include <QFile>
 #include <QLineEdit>
 #include <QDebug>
+#include <QInputDialog>
+#include <QLabel>
+#include <QGridLayout>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class Widget; }
@@ -63,6 +66,8 @@ private:
     void DFF(QPainter* painter,Device* device);
     void Latch(QPainter* painter,Device* device);
     void ck_gen(QPainter* painter,Device* device);
+    void nand3(QPainter* painter,Device* device);
+    void nor2(QPainter* painter,Device* device);
 public:
     float max_4(float a,float b,float c,float d);
     float min_4(float a,float b,float c,float d);
@@ -107,6 +112,61 @@ public slots:
         m_scaleFactor = 1.0;
         m_dragOffset = QPoint();
         update(); // 重新绘制widget
+    }
+// 用于服务器IP地址的获取
+public:
+    QString serverIP;
+public slots:
+    void onUploadButtonClicked()
+    {
+        releaseKeyboard();
+        QDialog dialog(this);
+        dialog.setWindowTitle("Input");
+
+        QLineEdit* ipPart1 = new QLineEdit(&dialog);
+        QLineEdit* ipPart2 = new QLineEdit(&dialog);
+        QLineEdit* ipPart3 = new QLineEdit(&dialog);
+        QLineEdit* ipPart4 = new QLineEdit(&dialog);
+
+        // 设置文本框的最大长度为3
+        ipPart1->setFixedWidth(50);
+        ipPart2->setFixedWidth(50);
+        ipPart3->setFixedWidth(50);
+        ipPart4->setFixedWidth(50);
+
+        QGridLayout* layout = new QGridLayout(&dialog);
+        layout->addWidget(new QLabel("Server IP:", &dialog), 0, 0);
+        layout->addWidget(ipPart1, 0, 1);
+        layout->addWidget(new QLabel(".", &dialog), 0, 2);
+        layout->addWidget(ipPart2, 0, 3);
+        layout->addWidget(new QLabel(".", &dialog), 0, 4);
+        layout->addWidget(ipPart3, 0, 5);
+        layout->addWidget(new QLabel(".", &dialog), 0, 6);
+        layout->addWidget(ipPart4, 0, 7);
+
+        QPushButton* okButton = new QPushButton("OK", &dialog);
+        layout->addWidget(okButton, 1, 7);
+
+        connect(okButton, &QPushButton::clicked, [&dialog, ipPart1, ipPart2, ipPart3, ipPart4, this]() {
+            QString part1 = ipPart1->text();
+            QString part2 = ipPart2->text();
+            QString part3 = ipPart3->text();
+            QString part4 = ipPart4->text();
+
+            serverIP = part1 + "." + part2 + "." + part3 + "." + part4;
+            qDebug() << "Server IP is: " << serverIP;
+
+            dialog.accept();
+        });
+
+        // 设置焦点传递
+        ipPart1->setFocusPolicy(Qt::StrongFocus);
+        ipPart2->setFocusPolicy(Qt::StrongFocus);
+        ipPart3->setFocusPolicy(Qt::StrongFocus);
+        ipPart4->setFocusPolicy(Qt::StrongFocus);
+
+        dialog.exec();
+        grabKeyboard();
     }
 };
 #endif // WIDGET_H

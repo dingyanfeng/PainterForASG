@@ -109,6 +109,50 @@ void Widget::nand2(QPainter *painter, Device *device){
     painter->drawEllipse(QPoint(p3_x+20,(p3_y+p4_y)/2),7,7);
 }
 
+void Widget::nand3(QPainter *painter, Device *device){
+    int p1_x = device->lh.x*20;
+    int p1_y = device->lh.y*20+25;
+    int p2_x = device->lh.x*20;
+    int p2_y = (device->lh.y+device->height)*20-25;
+    int p3_x = (device->lh.x+device->width)*20-25;
+    int p3_y = p1_y;
+    int p4_x = p3_x;
+    int p4_y = p2_y;
+    painter->drawLine(p1_x,p1_y-12,p2_x,p2_y+12);
+    painter->drawLine(p1_x,p1_y,p3_x,p3_y);
+    painter->drawLine(p2_x,p2_y,p4_x,p4_y);
+    painter->drawLine(p1_x,p1_y-5,p1_x+13,p1_y-5);
+    painter->drawLine(p2_x,p2_y+5,p2_x+13,p2_y+5);
+    painter->drawLine(p1_x,(p1_y+p2_y)/2,p1_x+13,(p1_y+p2_y)/2);
+    QRectF rectangle(p3_x-18, p3_y, 30.0, 30.0);
+    int startAngle = -80 * 16;
+    int spanAngle = 170 * 16;
+    painter->drawArc(rectangle, startAngle, spanAngle);    //调用绘图命令
+    painter->drawEllipse(QPoint(p3_x+20,(p3_y+p4_y)/2),7,7);
+}
+
+void Widget::nor2(QPainter *painter, Device *device){
+    int p1_x = device->lh.x*20;
+    int p1_y = device->lh.y*20+15;
+    int p2_y = (device->lh.y+device->height)*20-15;
+    int p3_x = (device->lh.x+device->width)*20-25;
+    int p3_y = p1_y;
+    int p4_y = p2_y;
+    QRectF rectangle1(p3_x-100, p3_y-90, 130.0, 130.0);
+    int startAngle1 = -110 * 16;
+    int spanAngle1 = 70 * 16;
+    painter->drawArc(rectangle1, startAngle1, spanAngle1);
+    QRectF rectangle2(p3_x-100, p3_y-10, 130.0, 130.0);
+    int startAngle2 = 40 * 16;
+    int spanAngle2 = 70 * 16;
+    painter->drawArc(rectangle2, startAngle2, spanAngle2);
+    QRectF rectangle3(p1_x-75, p1_y-25, 80.0, 80.0);
+    int startAngle3 = -32 * 16;
+    int spanAngle3 = 64 * 16;
+    painter->drawArc(rectangle3, startAngle3, spanAngle3);
+    painter->drawEllipse(QPoint(p3_x+20,(p3_y+p4_y)/2),7,7);
+}
+
 void Widget::DFF(QPainter* painter,Device* device){
     int y1 = device->lh.y*20 + device->height*10;
     int y2 = device->lh.y*20 + device->height*5;
@@ -412,6 +456,12 @@ void Widget::paintEvent(QPaintEvent * event)
             }
             else if (netParam[idx].deviceVec[i].type=="ck_gen") {
                 this->ck_gen(&painter,&netParam[idx].deviceVec[i]);
+            }
+            else if (netParam[idx].deviceVec[i].type=="nand3") {
+                this->nand3(&painter,&netParam[idx].deviceVec[i]);
+            }
+            else if (netParam[idx].deviceVec[i].type=="nor2") {
+                this->nor2(&painter,&netParam[idx].deviceVec[i]);
             }
             else {
                 painter.drawRect(netParam[idx].deviceVec[i].lh.x*20,
@@ -729,7 +779,10 @@ void Widget::uploadFile()
     if (!filePath.isEmpty())
     {
         qDebug() << "Select the file: " << filePath <<endl;
-        QNetworkRequest request(QUrl("http://localhost:5000/upload"));
+        QString serverUrl = "http://" + serverIP + ":8080/upload";
+        QNetworkRequest request((QUrl(serverUrl)));
+
+        qDebug() << "The server url is: " << serverUrl << endl;
 
         // 打开文件
         if (fileObj == nullptr) {

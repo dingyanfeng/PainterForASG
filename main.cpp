@@ -60,8 +60,8 @@ int main(int argc, char *argv[])
 
     QVBoxLayout* rightLayout = new QVBoxLayout();
 
-    QPushButton* uploadButton = new QPushButton("Upload file");
-    QPushButton* IPButton = new QPushButton("SET IP First!");
+    QPushButton* uploadButton = new QPushButton("UPLOAD FILE");
+    QPushButton* IPButton = new QPushButton("SET SERVER IP AND PORT FIRST!");
     IPButton->setStyleSheet("QPushButton { color: red; font-weight: bold; }");
     QComboBox* comboBox = new QComboBox();
     comboBox->setFixedWidth(400);

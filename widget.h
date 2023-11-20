@@ -68,6 +68,7 @@ private:
     void ck_gen(QPainter* painter,Device* device);
     void nand3(QPainter* painter,Device* device);
     void nor2(QPainter* painter,Device* device);
+    void mos(QPainter* painter,Device* device);
 public:
     float max_4(float a,float b,float c,float d);
     float min_4(float a,float b,float c,float d);
@@ -116,6 +117,7 @@ public slots:
 // 用于服务器IP地址的获取
 public:
     QString serverIP;
+    QString serverPort;
 public slots:
     void onUploadButtonClicked()
     {
@@ -127,15 +129,18 @@ public slots:
         QLineEdit* ipPart2 = new QLineEdit(&dialog);
         QLineEdit* ipPart3 = new QLineEdit(&dialog);
         QLineEdit* ipPart4 = new QLineEdit(&dialog);
+        QLineEdit* portPart = new QLineEdit(&dialog);
+        portPart->setPlaceholderText("port");
 
         // 设置文本框的最大长度为3
         ipPart1->setFixedWidth(50);
         ipPart2->setFixedWidth(50);
         ipPart3->setFixedWidth(50);
         ipPart4->setFixedWidth(50);
+        portPart->setFixedWidth(50);
 
         QGridLayout* layout = new QGridLayout(&dialog);
-        layout->addWidget(new QLabel("Server IP:", &dialog), 0, 0);
+        layout->addWidget(new QLabel("Server [IP:port]:", &dialog), 0, 0);
         layout->addWidget(ipPart1, 0, 1);
         layout->addWidget(new QLabel(".", &dialog), 0, 2);
         layout->addWidget(ipPart2, 0, 3);
@@ -143,18 +148,23 @@ public slots:
         layout->addWidget(ipPart3, 0, 5);
         layout->addWidget(new QLabel(".", &dialog), 0, 6);
         layout->addWidget(ipPart4, 0, 7);
+        layout->addWidget(new QLabel(":", &dialog), 0, 8);
+        layout->addWidget(portPart, 0, 9);
 
         QPushButton* okButton = new QPushButton("OK", &dialog);
         layout->addWidget(okButton, 1, 7);
 
-        connect(okButton, &QPushButton::clicked, [&dialog, ipPart1, ipPart2, ipPart3, ipPart4, this]() {
+        connect(okButton, &QPushButton::clicked, [&dialog, ipPart1, ipPart2, ipPart3, ipPart4, portPart, this]() {
             QString part1 = ipPart1->text();
             QString part2 = ipPart2->text();
             QString part3 = ipPart3->text();
             QString part4 = ipPart4->text();
+            QString port_part = portPart->text();
 
             serverIP = part1 + "." + part2 + "." + part3 + "." + part4;
             qDebug() << "Server IP is: " << serverIP;
+            serverPort = port_part;
+            qDebug() << "Server Port is: "<<serverPort;
 
             dialog.accept();
         });
@@ -164,6 +174,7 @@ public slots:
         ipPart2->setFocusPolicy(Qt::StrongFocus);
         ipPart3->setFocusPolicy(Qt::StrongFocus);
         ipPart4->setFocusPolicy(Qt::StrongFocus);
+        portPart->setFocusPolicy(Qt::StrongFocus);
 
         dialog.exec();
         grabKeyboard();

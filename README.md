@@ -2,15 +2,15 @@
 
 - **文件位置要求**
 
-  - 运行`main.py`文件，要求`devices.json`文件与`main.py`在同一文件夹下
+  - 运行`backend.py`文件，要求`devices.json`文件与`backend.py`在同一文件夹下
 
-  - `main.py`调用`src/ptest`可执行文件生成布局布线结果文件`output.txt`，可根据需求自行调整
+  - `backend.py`调用`./placement-and-routing/serial-asg`可执行文件生成布局布线结果文件`./(request-id)/output.txt`，可根据需求自行调整(request-id为前端连接请求的id)
 
    ```python
     # 执行可执行文件并获取结果文件
-    result_file = './output.txt'
+    result_file = './{}/output.txt'.format(request_id)
     net_tm = '-all'
-    process = subprocess.run(['../src/ptest', file_path, net_tm], capture_output=True)
+    process = subprocess.run(['args.exe', file_path, net_tm], capture_output=True)
    ```
   
 - **关闭防火墙**

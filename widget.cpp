@@ -180,6 +180,40 @@ void Widget::ck_gen(QPainter *painter, Device *device){
     painter->drawRect(device->lh.x*20,device->lh.y*20,device->width*20,device->height*20);
 }
 
+void Widget::mos(QPainter* painter,Device* device){
+    int p1_x = device->lh.x*20;
+    int p1_y = device->lh.y*20;
+    int p2_x = device->lh.x*20;
+    int p2_y = (device->lh.y+device->height)*20;
+    int p3_x = (device->lh.x + device->width)*20;
+    painter->drawLine(p1_x+1.5*20,p1_y+1.5*20,p3_x-1*20,p1_y+1.5*20);
+    painter->drawLine(p1_x+1.5*20,p1_y+1.5*20,p2_x+1.5*20,p2_y-1.5*20);
+    painter->drawLine(p2_x+1.5*20,p2_y-1.5*20,p3_x-1*20,p2_y-1.5*20);
+    painter->drawLine(p1_x+1.1*20,p1_y+1.5*20,p2_x+1.1*20,p2_y-1.5*20);
+    painter->drawLine(p3_x-1*20,p1_y+1.5*20,p3_x-1*20,p1_y+1*20);
+    painter->drawLine(p3_x-1*20,p2_y-1.5*20,p3_x-1*20,p2_y-1*20);
+    painter->drawLine(p1_x+2*20,p1_y+2.5*20,p3_x-0.5*20,p1_y+2.5*20);
+    painter->drawLine(p1_x+2*20,p1_y+2.5*20,p3_x-1*20,p1_y+2*20);
+    painter->drawLine(p1_x+2*20,p1_y+2.5*20,p3_x-1*20,p1_y+3*20);
+    painter->drawLine(p1_x+0.5*20,p1_y+2.5*20,p1_x+1*20,p1_y+2.5*20);
+    QPen pen1(QColor(31,0,214));//255,255,13
+    pen1.setWidth(2);
+    painter->setPen(pen1);
+    painter->drawLine(p1_x,p1_y+1*20,p3_x-1*20,p1_y+1*20);
+    painter->drawLine(p1_x,p1_y+2*20,p1_x+0.5*20,p1_y+2*20);
+    painter->drawLine(p1_x+0.5*20,p1_y+2*20,p1_x+0.5*20,p1_y+2.5*20);
+    painter->drawLine(p1_x,p1_y+3*20,p1_x+0.5*20,p1_y+3*20);
+    painter->drawLine(p1_x+0.5*20,p1_y+3*20,p1_x+0.5*20,p1_y+4*20);
+    painter->drawLine(p1_x+0.5*20,p1_y+4*20,p1_x+3*20,p1_y+4*20);
+    painter->drawLine(p1_x,p1_y+4*20,p1_x,p2_y);
+    painter->drawLine(p1_x,p2_y,p3_x,p2_y);
+    painter->drawLine(p3_x,p2_y,p3_x,p2_y-2.5*20);
+    painter->drawLine(p3_x,p2_y-2.5*20,p3_x-0.5*20,p2_y-2.5*20);
+    QPen pen(QColor(138,76,76));//13,238,255
+    pen.setWidth(2);
+    painter->setPen(pen);
+}
+
 void Widget::paintEvent(QPaintEvent * event)
 {
     if(have_new_file){
@@ -463,6 +497,9 @@ void Widget::paintEvent(QPaintEvent * event)
             else if (netParam[idx].deviceVec[i].type=="nor2") {
                 this->nor2(&painter,&netParam[idx].deviceVec[i]);
             }
+            else if (netParam[idx].deviceVec[i].type=="MOS") {
+                this->mos(&painter,&netParam[idx].deviceVec[i]);
+            }
             else {
                 painter.drawRect(netParam[idx].deviceVec[i].lh.x*20,
                                  netParam[idx].deviceVec[i].lh.y*20,
@@ -709,7 +746,7 @@ void Widget::mousePressEvent(QMouseEvent *event)
                 }
                 // 若没找到对应元件的网表，则不刷新
                 if(temp==idx){
-                    QMessageBox::critical(this, tr("ERROR"), tr("未找到对应网表！"));
+                    QMessageBox::critical(this, tr("ERROR"), tr("Can't find the netlist！"));
                     break;
                 }
                 else{
@@ -778,8 +815,16 @@ void Widget::uploadFile()
     // 检查文件路径是否有效
     if (!filePath.isEmpty())
     {
+        QFileInfo fileInfo(filePath);
+
+        if (fileInfo.suffix().toLower() != "spi")
+        {
+            QMessageBox::critical(this, "Error", "Invalid file format! Please select a .spi file.");
+            filePath.clear();
+            return;
+        }
         qDebug() << "Select the file: " << filePath <<endl;
-        QString serverUrl = "http://" + serverIP + ":8080/upload";
+        QString serverUrl = "http://" + serverIP + ":" + serverPort +"/upload";
         QNetworkRequest request((QUrl(serverUrl)));
 
         qDebug() << "The server url is: " << serverUrl << endl;
@@ -848,6 +893,11 @@ void Widget::uploadFile()
                     QByteArray errorData = reply->readAll();
                     QString errorMessage(errorData);
                     qDebug() << "Error Message:" << errorMessage;
+                    if(reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 500)
+                    {
+                        qDebug() << "The backend run error!" << endl;
+                        return;
+                    }
                     // 判断是否达到最大重传次数
                     if (retryCount < maxRetryCount)
                     {
@@ -874,7 +924,7 @@ void Widget::uploadFile()
         else
         {
             // 文件打开失败，处理错误信息
-            qDebug() << "Fail to open the file!";
+            qDebug() << "Fail to open the file!" << endl;
         }
     }
 }
